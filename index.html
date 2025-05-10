@@ -2,20 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Pulsing Cube (No Sound)</title>
+    <title>Smooth Color Cycling Spotlight</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   </head>
   <body>
     <a-scene background="color: black" shadow="type: pcfsoft">
       
-      <!-- Cursor for mouse clicking -->
+      <!-- Cursor for clicking -->
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
       <!-- Ground -->
       <a-plane rotation="-90 0 0" width="30" height="30" color="#1a1a1a" shadow></a-plane>
 
-      <!-- Cube with smooth pulse and rotation -->
+      <!-- Cube -->
       <a-box id="cube"
              class="clickable"
              position="0 2 -3"
@@ -27,11 +27,13 @@
              animation__shrink="property: scale; startEvents: resetScale; to: 1 1 1; dur: 300; easing: easeInOutSine">
       </a-box>
 
-      <!-- Spotlight -->
-      <a-entity light="type: spot; color: #3399ff; intensity: 10; angle: 80; penumbra: 0.7; decay: 1; distance: 40; castShadow: true"
+      <!-- Smoothly Cycling Spotlight -->
+      <a-entity id="colorSpot"
+                light="type: spot; color: #3399ff; intensity: 10; angle: 80; penumbra: 0.7; decay: 1; distance: 40; castShadow: true"
                 position="1 8 2"
                 rotation="-65 -15 0"
-                target="#cube">
+                target="#cube"
+                smooth-color-cycler>
       </a-entity>
 
       <!-- Ambient light -->
@@ -40,7 +42,7 @@
       <!-- Camera -->
       <a-entity camera look-controls wasd-controls position="0 1.6 5"></a-entity>
 
-      <!-- Pulse Logic -->
+      <!-- Pulse + Smooth Color Cycler Logic -->
       <script>
         AFRAME.registerComponent('pulse-on-click', {
           init: function () {
@@ -51,6 +53,33 @@
                 el.emit('resetScale');
               }, 500);
             });
+          }
+        });
+
+        AFRAME.registerComponent('smooth-color-cycler', {
+          schema: {
+            colors: { default: ['#3399ff', '#9933ff', '#33cc33', '#ff3333'] },
+            duration: { default: 2000 }
+          },
+          init: function () {
+            const el = this.el;
+            const colors = this.data.colors;
+            const duration = this.data.duration;
+            let index = 0;
+
+            const cycleColor = () => {
+              const nextColor = colors[(index + 1) % colors.length];
+              el.setAttribute('animation__lightcolor', {
+                property: 'light.color',
+                to: nextColor,
+                dur: duration,
+                easing: 'linear'
+              });
+              index = (index + 1) % colors.length;
+              setTimeout(cycleColor, duration);
+            };
+
+            cycleColor();
           }
         });
 
