@@ -2,34 +2,42 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Smooth Color Cycling Spotlight</title>
+    <title>Ripple + Pulsing Cube + Color Spotlight</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   </head>
   <body>
     <a-scene background="color: black" shadow="type: pcfsoft">
       
-      <!-- Cursor for clicking -->
+      <!-- Mouse cursor for desktop click interaction -->
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
-      <!-- Ground -->
-      <a-plane rotation="-90 0 0" width="30" height="30" color="#1a1a1a" shadow></a-plane>
+      <!-- Ground with ripple shader -->
+      <a-entity id="ripple-surface"
+                geometry="primitive: plane; width: 30; height: 30"
+                rotation="-90 0 0"
+                position="0 0 0"
+                material="shader: ripple"
+                shadow="receive: false">
+      </a-entity>
 
-      <!-- Cube -->
+      <!-- Rotating and pulsing cube -->
       <a-box id="cube"
              class="clickable"
+             pulse-on-click
              position="0 2 -3"
              width="1.2" height="1.2" depth="1.2"
-             color="#888" metalness="0.8" roughness="0.1"
-             shadow
+             color="#888"
+             metalness="0.8" roughness="0.1"
+             shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
-             animation__grow="property: scale; startEvents: pulse; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
+             animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
              animation__shrink="property: scale; startEvents: resetScale; to: 1 1 1; dur: 300; easing: easeInOutSine">
       </a-box>
 
-      <!-- Smoothly Cycling Spotlight -->
+      <!-- Spotlight with smooth color cycling -->
       <a-entity id="colorSpot"
-                light="type: spot; color: #3399ff; intensity: 10; angle: 80; penumbra: 0.7; decay: 1; distance: 40; castShadow: true"
+                light="type: spot; intensity: 10; angle: 80; penumbra: 0.7; decay: 1; distance: 40; castShadow: true"
                 position="1 8 2"
                 rotation="-65 -15 0"
                 target="#cube"
@@ -42,20 +50,51 @@
       <!-- Camera -->
       <a-entity camera look-controls wasd-controls position="0 1.6 5"></a-entity>
 
-      <!-- Pulse + Smooth Color Cycler Logic -->
+      <!-- Ripple Shader -->
+      <script>
+        AFRAME.registerShader('ripple', {
+          schema: {
+            time: { type: 'time', is: 'uniform' },
+            color: { type: 'color', default: '#1a1a1a', is: 'uniform' }
+          },
+          vertexShader: `
+            varying vec2 vUV;
+            void main() {
+              vUV = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            precision mediump float;
+            uniform float time;
+            uniform vec3 color;
+            varying vec2 vUV;
+
+            void main() {
+              float dist = distance(vUV, vec2(0.5));
+              float ripple = 0.5 + 0.5 * sin(40.0 * dist - time * 0.005);
+              vec3 finalColor = color * ripple;
+              gl_FragColor = vec4(finalColor, 1.0);
+            }
+          `
+        });
+      </script>
+
+      <!-- Pulse-on-click logic -->
       <script>
         AFRAME.registerComponent('pulse-on-click', {
           init: function () {
             const el = this.el;
             el.addEventListener('click', () => {
               el.emit('pulse');
-              setTimeout(() => {
-                el.emit('resetScale');
-              }, 500);
+              setTimeout(() => el.emit('resetScale'), 500);
             });
           }
         });
+      </script>
 
+      <!-- Smooth spotlight color cycle -->
+      <script>
         AFRAME.registerComponent('smooth-color-cycler', {
           schema: {
             colors: { default: ['#3399ff', '#9933ff', '#33cc33', '#ff3333'] },
@@ -67,7 +106,7 @@
             const duration = this.data.duration;
             let index = 0;
 
-            const cycleColor = () => {
+            const cycle = () => {
               const nextColor = colors[(index + 1) % colors.length];
               el.setAttribute('animation__lightcolor', {
                 property: 'light.color',
@@ -76,15 +115,11 @@
                 easing: 'linear'
               });
               index = (index + 1) % colors.length;
-              setTimeout(cycleColor, duration);
+              setTimeout(cycle, duration);
             };
 
-            cycleColor();
+            cycle();
           }
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-          document.querySelector('#cube').setAttribute('pulse-on-click', '');
         });
       </script>
 
