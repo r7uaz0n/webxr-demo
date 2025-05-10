@@ -1,24 +1,39 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <title>WebXR Demo</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <meta charset="UTF-8" />
+    <title>Glossy Lit Cube</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   </head>
   <body>
-    <a-scene>
-      <!-- Sky background -->
-      <a-sky color="#ECECEC"></a-sky>
+    <a-scene background="color: black" shadow="type: pcfsoft">
+      
+      <!-- Ground -->
+      <a-plane rotation="-90 0 0" width="30" height="30" color="#1a1a1a" shadow></a-plane>
 
-      <!-- Camera with VR support -->
-      <a-entity camera look-controls wasd-controls position="0 1.6 0"></a-entity>
+      <!-- Glossy Lit Cube -->
+      <a-box id="cube"
+             position="0 1 -3"
+             width="1.2" height="1.2" depth="1.2"
+             color="#888" metalness="0.8" roughness="0.1"
+             shadow
+             animation="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear">
+      </a-box>
 
-      <!-- A red box -->
-      <a-box position="0 1 -3" rotation="0 45 0" color="#FF0000" shadow></a-box>
+      <!-- Brighter Blue Spotlight -->
+      <a-entity light="type: spot; color: #3399ff; intensity: 10; angle: 80; penumbra: 0.7; decay: 1; distance: 40; castShadow: true"
+                position="1 8 2"
+                rotation="-65 -15 0"
+                target="#cube">
+      </a-entity>
 
-      <!-- A ground plane -->
-      <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#7BC8A4"></a-plane>
+      <!-- Ambient Fill Light (cool white) -->
+      <a-entity light="type: ambient; color: #ccccff; intensity: 0.3"></a-entity>
+
+      <!-- Camera -->
+      <a-entity camera look-controls wasd-controls position="0 1.6 5"></a-entity>
+
     </a-scene>
   </body>
 </html>
