@@ -8,7 +8,42 @@
   </head>
   <body>
     <a-scene background="color: black" shadow="type: pcfsoft">
-      
+
+      <!-- Procedurally generated grass texture (runs immediately so it's -->
+      <!-- available in the DOM before the cube's material tries to load it) -->
+      <script>
+        (function () {
+          const canvas = document.createElement('canvas');
+          canvas.id = 'grassCanvas';
+          canvas.width = 256;
+          canvas.height = 256;
+          canvas.style.display = 'none';
+          const ctx = canvas.getContext('2d');
+
+          const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+          gradient.addColorStop(0, '#3f8f2a');
+          gradient.addColorStop(1, '#2c5e1a');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, 256, 256);
+
+          for (let i = 0; i < 6000; i++) {
+            const x = Math.random() * 256;
+            const y = Math.random() * 256;
+            const len = 3 + Math.random() * 7;
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.9;
+            const shade = 60 + Math.floor(Math.random() * 100);
+            ctx.strokeStyle = `rgba(${20 + Math.random() * 40}, ${shade}, ${20 + Math.random() * 30}, 0.85)`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+            ctx.stroke();
+          }
+
+          document.body.appendChild(canvas);
+        })();
+      </script>
+
       <!-- Mouse cursor for desktop click interaction -->
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
@@ -27,8 +62,8 @@
              pulse-on-click
              position="0 2 -3"
              width="1.2" height="1.2" depth="1.2"
-             color="#888"
-             metalness="0.8" roughness="0.1"
+             color="#fff"
+             material="src: #grassCanvas; repeat: 2 2; metalness: 0.1; roughness: 0.9"
              shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
              animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
