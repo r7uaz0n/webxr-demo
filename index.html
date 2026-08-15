@@ -20,7 +20,9 @@
       <input id="reverb-slider" type="range" min="0" max="1" step="0.01" value="0.4" style="width: 140px; accent-color: #dfe6ff;" />
     </div>
 
-    <a-scene background="color: black" shadow="type: pcfsoft">
+    <a-scene shadow="type: pcfsoft">
+
+      <a-sky id="skybox" material="shader: skybox; color: #dfe7ff; side: back"></a-sky>
 
       <!-- Procedurally generated grass texture (runs immediately so it's -->
       <!-- available in the DOM before the cube's material tries to load it) -->
@@ -79,14 +81,6 @@
                 position="0 0 0"  
                 material="shader: ripple"
                 shadow="receive: false">
-      </a-entity>
-
-      <!-- Mirrored ripple backdrop -->
-      <a-entity id="ripple-backdrop"
-                geometry="primitive: plane; width: 30; height: 18"
-                position="0 5 -12"
-                material="color: #111827; opacity: 0.7; transparent: true"
-                shader="background-ripples">
       </a-entity>
 
       <!-- Rotating and pulsing cube -->
@@ -148,16 +142,19 @@
           `
         });
 
-        AFRAME.registerShader('background-ripples', {
+        AFRAME.registerShader('skybox', {
           schema: {
             time: { type: 'time', is: 'uniform' },
-            color: { type: 'color', default: '#111827', is: 'uniform' }
+            color: { type: 'color', default: '#dfe7ff', is: 'uniform' }
           },
           vertexShader: `
             varying vec2 vUV;
+            varying vec3 vWorldPos;
             void main() {
               vUV = uv;
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              vec4 worldPos = modelMatrix * vec4(position, 1.0);
+              vWorldPos = worldPos.xyz;
+              gl_Position = projectionMatrix * viewMatrix * worldPos;
             }
           `,
           fragmentShader: `
@@ -165,15 +162,24 @@
             uniform float time;
             uniform vec3 color;
             varying vec2 vUV;
+            varying vec3 vWorldPos;
 
             void main() {
               vec2 uv = vUV * 2.0 - 1.0;
-              float wave1 = sin(length(uv * 2.8) * 15.0 - time * 0.0035);
-              float wave2 = sin(length((uv + vec2(0.3, -0.1)) * 2.2) * 18.0 + time * 0.0028);
-              float rings = (wave1 + wave2) * 0.25 + 0.5;
-              float glow = smoothstep(0.8, 1.0, 1.0 - length(uv));
-              vec3 base = color * (0.55 + rings * 0.45);
-              gl_FragColor = vec4(base + glow * 0.18, 0.75);
+              float horizon = smoothstep(-0.8, 1.0, uv.y);
+              vec3 zenith = vec3(0.12, 0.18, 0.32);
+              vec3 horizonColor = vec3(0.90, 0.82, 0.96);
+              vec3 sky = mix(zenith, horizonColor, horizon);
+
+              float cloudBand = sin((uv.x * 9.0 + uv.y * 6.0) * 2.0 - time * 0.00015) * 0.5 + 0.5;
+              float cloudWave = sin((uv.x * 14.0 - uv.y * 8.0) + time * 0.0002) * 0.5 + 0.5;
+              float mist = smoothstep(0.25, 1.0, cloudBand * cloudWave);
+              sky = mix(sky, vec3(1.0, 0.98, 1.0), mist * 0.12);
+
+              float glow = 1.0 - length(uv * vec2(1.0, 0.75));
+              sky += vec3(0.14, 0.12, 0.22) * smoothstep(0.2, 1.0, glow) * 0.25;
+
+              gl_FragColor = vec4(sky, 1.0);
             }
           `
         });
