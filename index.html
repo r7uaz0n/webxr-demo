@@ -15,6 +15,10 @@
       <button data-sound="drone-hit" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Drone Hit</button>
       <button data-sound="soft-pluck" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Soft Pluck</button>
     </div>
+    <div id="reverb-control" style="position: fixed; top: 72px; left: 16px; z-index: 20; padding: 8px 12px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: white; font: 12px/1.2 sans-serif; backdrop-filter: blur(6px);">
+      <label for="reverb-slider" style="display: block; margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase;">Delay</label>
+      <input id="reverb-slider" type="range" min="0" max="1" step="0.01" value="0.4" style="width: 140px; accent-color: #dfe6ff;" />
+    </div>
 
     <a-scene background="color: black" shadow="type: pcfsoft">
 
@@ -53,51 +57,14 @@
         })();
 
         (function () {
-          const canvas = document.createElement('canvas');
-          canvas.width = 512;
-          canvas.height = 512;
-          canvas.style.display = 'none';
-          const ctx = canvas.getContext('2d');
-
-          const base = ctx.createLinearGradient(0, 0, 512, 512);
-          base.addColorStop(0, '#f9f7f2');
-          base.addColorStop(0.5, '#e7e2da');
-          base.addColorStop(1, '#d9d3cb');
-          ctx.fillStyle = base;
-          ctx.fillRect(0, 0, 512, 512);
-
-          for (let y = 0; y < 512; y += 2) {
-            for (let x = 0; x < 512; x += 2) {
-              const wave = Math.sin((x * 0.09) + (y * 0.04)) * 32;
-              const swirl = Math.sin((x * 0.03) + (y * 0.08) + 3.5) * 18;
-              const grain = (Math.random() - 0.5) * 18;
-              const brightness = 235 + wave + swirl + grain;
-              const alpha = 0.18 + Math.random() * 0.2;
-
-              ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, ${alpha})`;
-              ctx.fillRect(x, y, 3, 3);
-            }
-          }
-
-          for (let i = 0; i < 70; i++) {
-            const x = Math.random() * 512;
-            const y = Math.random() * 512;
-            const length = 50 + Math.random() * 180;
-            const angle = (Math.random() - 0.5) * 1.2 + (Math.PI / 2) * (Math.random() > 0.5 ? 1 : -1);
-            const shade = 180 + Math.random() * 30;
-
-            ctx.strokeStyle = `rgba(${shade}, ${shade}, ${shade}, 0.35)`;
-            ctx.lineWidth = 1 + Math.random() * 3;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
-            ctx.stroke();
-          }
-
           const img = new Image();
-          img.id = 'marbleTexture';
-          img.src = canvas.toDataURL('image/png');
-          img.style.display = 'none';
+          img.id = 'noiseTexture';
+          img.src = './-noise.gif';
+          img.crossOrigin = 'anonymous';
+          img.style.position = 'fixed';
+          img.style.left = '-9999px';
+          img.style.top = '-9999px';
+          img.style.display = 'block';
           document.body.appendChild(img);
         })();
       </script>
@@ -122,7 +89,7 @@
              position="0 2 -3"
              width="1.2" height="1.2" depth="1.2"
              color="#ffffff"
-             material="src: #marbleTexture; color: #f3efe9; metalness: 0.12; roughness: 0.38; normal-scale: 1 1"
+             material="src: #noiseTexture; color: #ffffff; metalness: 0.08; roughness: 0.8; transparent: false"
              shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
              animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
@@ -180,6 +147,9 @@
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
           let audioContext = null;
           let masterGain = null;
+          let delayNode = null;
+          let delayFeedback = null;
+          let dryGain = null;
 
           function ensureAudio() {
             if (!AudioCtx) return null;
@@ -187,12 +157,37 @@
               audioContext = new AudioCtx();
               masterGain = audioContext.createGain();
               masterGain.gain.value = 0.18;
+
+              delayNode = audioContext.createDelay(1.5);
+              delayFeedback = audioContext.createGain();
+              dryGain = audioContext.createGain();
+
+              delayNode.delayTime.value = 0.35;
+              delayFeedback.gain.value = 0.34;
+              dryGain.gain.value = 0.8;
+
+              delayNode.connect(delayFeedback);
+              delayFeedback.connect(delayNode);
+              delayNode.connect(masterGain);
+              dryGain.connect(masterGain);
               masterGain.connect(audioContext.destination);
             }
             if (audioContext.state === 'suspended') {
               audioContext.resume();
             }
             return audioContext;
+          }
+
+          function updateReverbLevel(value) {
+            if (!audioContext || !delayNode || !delayFeedback || !dryGain) return;
+            const amount = Number(value) || 0;
+            const delayTime = 0.05 + amount * 0.95;
+            const feedback = 0.12 + amount * 0.66;
+            const dry = 1 - amount * 0.7;
+
+            delayNode.delayTime.setTargetAtTime(delayTime, audioContext.currentTime, 0.08);
+            delayFeedback.gain.setTargetAtTime(feedback, audioContext.currentTime, 0.08);
+            dryGain.gain.setTargetAtTime(dry, audioContext.currentTime, 0.08);
           }
 
           function playTone({ frequency, start, duration, type = 'sine', gainValue = 0.04, detune = 0, filterFreq = 2200 }) {
@@ -216,7 +211,8 @@
 
             oscillator.connect(filter);
             filter.connect(gainNode);
-            gainNode.connect(masterGain);
+            gainNode.connect(dryGain);
+            gainNode.connect(delayNode);
 
             oscillator.start(start);
             oscillator.stop(start + duration + 0.18);
@@ -246,23 +242,23 @@
 
           const soundProfiles = {
             'ambient-key': ({ start, root }) => {
-              const chord = [root, root * 1.5, root * 2];
+              const chord = [root, root * 1.25, root * 1.5];
               chord.forEach((freq, index) => {
                 playAmbientKey({
                   frequency: freq,
                   start: start + index * 0.06,
                   duration: 1.8 + Math.random() * 0.6,
                   gainValue: 0.06 - index * 0.008,
-                  detune: (index % 2 === 0 ? -6 : 8) + (Math.random() - 0.5) * 8
+                  detune: (index === 0 ? -2 : 4) + (Math.random() - 0.5) * 6
                 });
               });
               playTone({
-                frequency: root * 3 + (Math.random() - 0.5) * 10,
+                frequency: root * 2 + (Math.random() - 0.5) * 8,
                 start: start + 0.08,
                 duration: 1.2,
                 type: 'sine',
                 gainValue: 0.028,
-                detune: (Math.random() - 0.5) * 10,
+                detune: (Math.random() - 0.5) * 8,
                 filterFreq: 1500
               });
             },
@@ -273,21 +269,30 @@
                 duration: 1.4,
                 type: 'triangle',
                 gainValue: 0.04,
-                detune: 10,
-                filterFreq: 4000
+                detune: 6,
+                filterFreq: 4200
               });
               playTone({
-                frequency: root * 2.01,
+                frequency: root * 1.25,
                 start: start + 0.04,
                 duration: 1.8,
                 type: 'sine',
-                gainValue: 0.018,
-                detune: -12,
-                filterFreq: 3000
+                gainValue: 0.02,
+                detune: 0,
+                filterFreq: 3400
+              });
+              playTone({
+                frequency: root * 1.5,
+                start: start + 0.08,
+                duration: 1.6,
+                type: 'sine',
+                gainValue: 0.015,
+                detune: -2,
+                filterFreq: 2600
               });
             },
             'bell-tone': ({ start, root }) => {
-              [root, root * 2, root * 3, root * 4].forEach((freq, index) => {
+              [root, root * 1.25, root * 1.5, root * 2].forEach((freq, index) => {
                 playTone({
                   frequency: freq,
                   start: start + index * 0.04,
@@ -305,9 +310,9 @@
                 start,
                 duration: 2.2,
                 type: 'sawtooth',
-                gainValue: 0.025,
-                detune: -8,
-                filterFreq: 800
+                gainValue: 0.024,
+                detune: -4,
+                filterFreq: 900
               });
               playTone({
                 frequency: root * 1.25,
@@ -315,8 +320,17 @@
                 duration: 1.1,
                 type: 'triangle',
                 gainValue: 0.04,
-                detune: 5,
+                detune: 4,
                 filterFreq: 1800
+              });
+              playTone({
+                frequency: root * 1.5,
+                start: start + 0.12,
+                duration: 1.3,
+                type: 'sine',
+                gainValue: 0.018,
+                detune: 2,
+                filterFreq: 1600
               });
             },
             'soft-pluck': ({ start, root }) => {
@@ -326,17 +340,26 @@
                 duration: 0.8,
                 type: 'triangle',
                 gainValue: 0.06,
-                detune: -2,
-                filterFreq: 2200
+                detune: 2,
+                filterFreq: 2400
               });
               playTone({
-                frequency: root * 1.5,
+                frequency: root * 1.25,
                 start: start + 0.04,
                 duration: 0.7,
                 type: 'sine',
-                gainValue: 0.028,
-                detune: 4,
-                filterFreq: 1800
+                gainValue: 0.03,
+                detune: 5,
+                filterFreq: 2000
+              });
+              playTone({
+                frequency: root * 1.5,
+                start: start + 0.08,
+                duration: 0.8,
+                type: 'sine',
+                gainValue: 0.02,
+                detune: 0,
+                filterFreq: 1600
               });
             }
           };
@@ -362,9 +385,17 @@
             });
           });
 
+          const reverbSlider = document.getElementById('reverb-slider');
+          if (reverbSlider) {
+            reverbSlider.addEventListener('input', (event) => {
+              updateReverbLevel(event.target.value);
+            });
+          }
+
           document.body.addEventListener('pointerdown', ensureAudio, { once: true });
           window.playCubeSound = playCubeSound;
           window.soundProfiles = soundProfiles;
+          window.updateReverbLevel = updateReverbLevel;
         })();
 
         AFRAME.registerComponent('spark-on-click', {
