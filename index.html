@@ -8,6 +8,13 @@
   </head>
   <body>
     <div id="sound-hint" style="position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); color: rgba(255,255,255,0.8); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 10px 16px; font: 12px/1.2 sans-serif; letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none; z-index: 10;">Click the cube to enable sound</div>
+    <div id="sound-picker" style="position: fixed; top: 16px; left: 16px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 20;">
+      <button data-sound="ambient-key" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Ambient Key</button>
+      <button data-sound="glass-hum" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Glass Hum</button>
+      <button data-sound="bell-tone" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Bell Tone</button>
+      <button data-sound="drone-hit" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Drone Hit</button>
+      <button data-sound="soft-pluck" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Soft Pluck</button>
+    </div>
 
     <a-scene background="color: black" shadow="type: pcfsoft">
 
@@ -237,37 +244,127 @@
             });
           }
 
+          const soundProfiles = {
+            'ambient-key': ({ start, root }) => {
+              const chord = [root, root * 1.5, root * 2];
+              chord.forEach((freq, index) => {
+                playAmbientKey({
+                  frequency: freq,
+                  start: start + index * 0.06,
+                  duration: 1.8 + Math.random() * 0.6,
+                  gainValue: 0.06 - index * 0.008,
+                  detune: (index % 2 === 0 ? -6 : 8) + (Math.random() - 0.5) * 8
+                });
+              });
+              playTone({
+                frequency: root * 3 + (Math.random() - 0.5) * 10,
+                start: start + 0.08,
+                duration: 1.2,
+                type: 'sine',
+                gainValue: 0.028,
+                detune: (Math.random() - 0.5) * 10,
+                filterFreq: 1500
+              });
+            },
+            'glass-hum': ({ start, root }) => {
+              playTone({
+                frequency: root,
+                start,
+                duration: 1.4,
+                type: 'triangle',
+                gainValue: 0.04,
+                detune: 10,
+                filterFreq: 4000
+              });
+              playTone({
+                frequency: root * 2.01,
+                start: start + 0.04,
+                duration: 1.8,
+                type: 'sine',
+                gainValue: 0.018,
+                detune: -12,
+                filterFreq: 3000
+              });
+            },
+            'bell-tone': ({ start, root }) => {
+              [root, root * 2, root * 3, root * 4].forEach((freq, index) => {
+                playTone({
+                  frequency: freq,
+                  start: start + index * 0.04,
+                  duration: 2.2,
+                  type: 'sine',
+                  gainValue: 0.024 - index * 0.003,
+                  detune: 0,
+                  filterFreq: 7000
+                });
+              });
+            },
+            'drone-hit': ({ start, root }) => {
+              playTone({
+                frequency: root * 0.5,
+                start,
+                duration: 2.2,
+                type: 'sawtooth',
+                gainValue: 0.025,
+                detune: -8,
+                filterFreq: 800
+              });
+              playTone({
+                frequency: root * 1.25,
+                start: start + 0.06,
+                duration: 1.1,
+                type: 'triangle',
+                gainValue: 0.04,
+                detune: 5,
+                filterFreq: 1800
+              });
+            },
+            'soft-pluck': ({ start, root }) => {
+              playTone({
+                frequency: root,
+                start,
+                duration: 0.8,
+                type: 'triangle',
+                gainValue: 0.06,
+                detune: -2,
+                filterFreq: 2200
+              });
+              playTone({
+                frequency: root * 1.5,
+                start: start + 0.04,
+                duration: 0.7,
+                type: 'sine',
+                gainValue: 0.028,
+                detune: 4,
+                filterFreq: 1800
+              });
+            }
+          };
+
+          let activeSound = 'ambient-key';
+
           function playCubeSound() {
             const ctx = ensureAudio();
             if (!ctx || !masterGain) return;
 
             const start = ctx.currentTime;
             const root = 196 + Math.random() * 40;
-            const chord = [root, root * 1.5, root * 2];
+            const profile = soundProfiles[activeSound] || soundProfiles['ambient-key'];
+            profile({ start, root });
+          }
 
-            chord.forEach((freq, index) => {
-              playAmbientKey({
-                frequency: freq,
-                start: start + index * 0.06,
-                duration: 1.8 + Math.random() * 0.6,
-                gainValue: 0.06 - index * 0.008,
-                detune: (index % 2 === 0 ? -6 : 8) + (Math.random() - 0.5) * 8
+          document.querySelectorAll('[data-sound]').forEach(button => {
+            button.addEventListener('click', () => {
+              activeSound = button.dataset.sound;
+              document.querySelectorAll('[data-sound]').forEach(btn => {
+                btn.style.background = btn.dataset.sound === activeSound ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)';
               });
             });
-
-            playTone({
-              frequency: root * 3 + (Math.random() - 0.5) * 10,
-              start: start + 0.08,
-              duration: 1.2,
-              type: 'sine',
-              gainValue: 0.028,
-              detune: (Math.random() - 0.5) * 10,
-              filterFreq: 1500
-            });
-          }
+          });
 
           document.body.addEventListener('pointerdown', ensureAudio, { once: true });
           window.playCubeSound = playCubeSound;
+          window.soundProfiles = soundProfiles;
         })();
 
         AFRAME.registerComponent('spark-on-click', {
