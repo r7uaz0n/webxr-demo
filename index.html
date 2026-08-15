@@ -7,6 +7,8 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   </head>
   <body>
+    <div id="sound-hint" style="position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); color: rgba(255,255,255,0.8); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 10px 16px; font: 12px/1.2 sans-serif; letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none; z-index: 10;">Click the cube to enable sound</div>
+
     <a-scene background="color: black" shadow="type: pcfsoft">
 
       <!-- Procedurally generated grass texture (runs immediately so it's -->
@@ -42,6 +44,55 @@
 
           document.body.appendChild(canvas);
         })();
+
+        (function () {
+          const canvas = document.createElement('canvas');
+          canvas.width = 512;
+          canvas.height = 512;
+          canvas.style.display = 'none';
+          const ctx = canvas.getContext('2d');
+
+          const base = ctx.createLinearGradient(0, 0, 512, 512);
+          base.addColorStop(0, '#f9f7f2');
+          base.addColorStop(0.5, '#e7e2da');
+          base.addColorStop(1, '#d9d3cb');
+          ctx.fillStyle = base;
+          ctx.fillRect(0, 0, 512, 512);
+
+          for (let y = 0; y < 512; y += 2) {
+            for (let x = 0; x < 512; x += 2) {
+              const wave = Math.sin((x * 0.09) + (y * 0.04)) * 32;
+              const swirl = Math.sin((x * 0.03) + (y * 0.08) + 3.5) * 18;
+              const grain = (Math.random() - 0.5) * 18;
+              const brightness = 235 + wave + swirl + grain;
+              const alpha = 0.18 + Math.random() * 0.2;
+
+              ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, ${alpha})`;
+              ctx.fillRect(x, y, 3, 3);
+            }
+          }
+
+          for (let i = 0; i < 70; i++) {
+            const x = Math.random() * 512;
+            const y = Math.random() * 512;
+            const length = 50 + Math.random() * 180;
+            const angle = (Math.random() - 0.5) * 1.2 + (Math.PI / 2) * (Math.random() > 0.5 ? 1 : -1);
+            const shade = 180 + Math.random() * 30;
+
+            ctx.strokeStyle = `rgba(${shade}, ${shade}, ${shade}, 0.35)`;
+            ctx.lineWidth = 1 + Math.random() * 3;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
+            ctx.stroke();
+          }
+
+          const img = new Image();
+          img.id = 'marbleTexture';
+          img.src = canvas.toDataURL('image/png');
+          img.style.display = 'none';
+          document.body.appendChild(img);
+        })();
       </script>
 
       <!-- Mouse cursor for desktop click interaction -->
@@ -60,10 +111,11 @@
       <a-box id="cube"
              class="clickable"
              pulse-on-click
+             spark-on-click
              position="0 2 -3"
              width="1.2" height="1.2" depth="1.2"
-             color="#fff"
-             material="src: #grassCanvas; repeat: 2 2; metalness: 0.1; roughness: 0.9"
+             color="#ffffff"
+             material="src: #marbleTexture; color: #f3efe9; metalness: 0.12; roughness: 0.38; normal-scale: 1 1"
              shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
              animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
@@ -72,7 +124,7 @@
 
       <!-- Spotlight with smooth color cycling -->
       <a-entity id="colorSpot"
-                light="type: spot; intensity: 10; angle: 80; penumbra: 0.7; decay: 1; distance: 40; castShadow: true"
+                light="type: spot; intensity: 4.8; angle: 85; penumbra: 1.1; decay: 2; distance: 36; castShadow: true"
                 position="1 8 2"
                 rotation="-65 -15 0"
                 target="#cube"
@@ -80,7 +132,7 @@
       </a-entity>
 
       <!-- Ambient light -->
-      <a-entity light="type: ambient; color: #ccccff; intensity: 0.3"></a-entity>
+      <a-entity light="type: ambient; color: #dfe6ff; intensity: 0.18"></a-entity>
 
       <!-- Camera -->
       <a-entity camera look-controls wasd-controls position="0 1.6 5"></a-entity>
@@ -117,10 +169,270 @@
 
       <!-- Pulse-on-click logic -->
       <script>
+        (function () {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          let audioContext = null;
+          let masterGain = null;
+
+          function ensureAudio() {
+            if (!AudioCtx) return null;
+            if (!audioContext) {
+              audioContext = new AudioCtx();
+              masterGain = audioContext.createGain();
+              masterGain.gain.value = 0.18;
+              masterGain.connect(audioContext.destination);
+            }
+            if (audioContext.state === 'suspended') {
+              audioContext.resume();
+            }
+            return audioContext;
+          }
+
+          function playTone({ frequency, start, duration, type = 'sine', gainValue = 0.04, detune = 0, filterFreq = 2200 }) {
+            if (!audioContext || !masterGain) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, start);
+            oscillator.detune.setValueAtTime(detune, start);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(filterFreq, start);
+            filter.Q.value = 0.6;
+
+            gainNode.gain.setValueAtTime(0.0001, start);
+            gainNode.gain.exponentialRampToValueAtTime(gainValue, start + 0.08);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration + 0.12);
+
+            oscillator.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(masterGain);
+
+            oscillator.start(start);
+            oscillator.stop(start + duration + 0.18);
+          }
+
+          function playAmbientKey({ frequency, start, duration, gainValue = 0.04, detune = 0 }) {
+            playTone({
+              frequency,
+              start,
+              duration,
+              type: 'sine',
+              gainValue,
+              detune,
+              filterFreq: 1800 + Math.random() * 800
+            });
+
+            playTone({
+              frequency: frequency * 2,
+              start: start + 0.02,
+              duration: duration + 0.2,
+              type: 'triangle',
+              gainValue: gainValue * 0.5,
+              detune: detune * 0.5,
+              filterFreq: 2600 + Math.random() * 1000
+            });
+          }
+
+          function playCubeSound() {
+            const ctx = ensureAudio();
+            if (!ctx || !masterGain) return;
+
+            const start = ctx.currentTime;
+            const root = 196 + Math.random() * 40;
+            const chord = [root, root * 1.5, root * 2];
+
+            chord.forEach((freq, index) => {
+              playAmbientKey({
+                frequency: freq,
+                start: start + index * 0.06,
+                duration: 1.8 + Math.random() * 0.6,
+                gainValue: 0.06 - index * 0.008,
+                detune: (index % 2 === 0 ? -6 : 8) + (Math.random() - 0.5) * 8
+              });
+            });
+
+            playTone({
+              frequency: root * 3 + (Math.random() - 0.5) * 10,
+              start: start + 0.08,
+              duration: 1.2,
+              type: 'sine',
+              gainValue: 0.028,
+              detune: (Math.random() - 0.5) * 10,
+              filterFreq: 1500
+            });
+          }
+
+          document.body.addEventListener('pointerdown', ensureAudio, { once: true });
+          window.playCubeSound = playCubeSound;
+        })();
+
+        AFRAME.registerComponent('spark-on-click', {
+          init: function () {
+            const sceneEl = this.el.sceneEl;
+            const rand = (min, max) => min + Math.random() * (max - min);
+            this.bursts = [];
+
+            this.createRipple = (x, z, color = '#a7f3d0') => {
+              const ripple = document.createElement('a-ring');
+              ripple.setAttribute('position', { x, y: 0.05, z });
+              ripple.setAttribute('rotation', '-90 0 0');
+              ripple.setAttribute('radius-inner', 0.06);
+              ripple.setAttribute('radius-outer', 0.18);
+              ripple.setAttribute('material', {
+                color,
+                emissive: color,
+                emissiveIntensity: 0.8,
+                transparent: true,
+                opacity: 0.8
+              });
+              ripple.setAttribute('animation__grow', {
+                property: 'scale',
+                from: '0.3 0.3 0.3',
+                to: '1.5 1.5 1.5',
+                dur: 500,
+                easing: 'easeOutQuad'
+              });
+              ripple.setAttribute('animation__fade', {
+                property: 'material.opacity',
+                from: 0.8,
+                to: 0,
+                dur: 500,
+                easing: 'easeOutQuad'
+              });
+              sceneEl.appendChild(ripple);
+              setTimeout(() => {
+                if (ripple.parentNode) ripple.parentNode.removeChild(ripple);
+              }, 520);
+            };
+
+            this.el.addEventListener('click', (event) => {
+              const intersection = event.detail && event.detail.intersection;
+              const point = intersection && intersection.point
+                ? intersection.point
+                : new THREE.Vector3(0, 0, 0);
+              const cubeColor = this.el.getAttribute('material').color || '#f3efe9';
+
+              const burst = document.createElement('a-entity');
+              burst.setAttribute('position', {
+                x: point.x,
+                y: point.y,
+                z: point.z
+              });
+
+              const particles = [];
+              for (let i = 0; i < 18; i += 1) {
+                const particle = document.createElement('a-sphere');
+                const hue = i % 2 === 0 ? '#ffd166' : '#ff7b00';
+                particle.setAttribute('radius', rand(0.018, 0.04));
+                particle.setAttribute('color', hue);
+                particle.setAttribute('material', {
+                  color: hue,
+                  emissive: '#ffb703',
+                  emissiveIntensity: 1,
+                  transparent: true,
+                  opacity: 0.95
+                });
+
+                const velocity = {
+                  x: rand(-0.08, 0.08),
+                  y: rand(0.02, 0.12),
+                  z: rand(-0.08, 0.08)
+                };
+
+                burst.appendChild(particle);
+                particles.push({
+                  mesh: particle,
+                  vx: velocity.x,
+                  vy: velocity.y,
+                  vz: velocity.z,
+                  age: 0,
+                  life: rand(0.35, 0.7),
+                  gravity: -0.012,
+                  rippleCreated: false
+                });
+              }
+
+              sceneEl.appendChild(burst);
+              this.bursts.push({ entity: burst, particles });
+            });
+          },
+          tick: function (time, delta) {
+            if (!this.bursts || !this.bursts.length) return;
+
+            const step = delta / 16.6667;
+
+            for (let i = this.bursts.length - 1; i >= 0; i -= 1) {
+              const burst = this.bursts[i];
+              const remaining = [];
+
+              for (const particle of burst.particles) {
+                particle.age += delta / 1000;
+                if (particle.age >= particle.life) {
+                  if (particle.mesh.parentNode) {
+                    particle.mesh.parentNode.removeChild(particle.mesh);
+                  }
+                  continue;
+                }
+
+                particle.vy += particle.gravity * step;
+                const current = particle.mesh.object3D.position;
+                current.x += particle.vx * step;
+                current.y += particle.vy * step;
+                current.z += particle.vz * step;
+
+                if (current.y <= 0.04 && !particle.rippleCreated) {
+                  const cubeColor = this.el.getAttribute('material').color || '#f3efe9';
+                  this.createRipple(current.x, current.z, cubeColor);
+                  particle.rippleCreated = true;
+                }
+
+                particle.mesh.setAttribute('material', {
+                  color: particle.mesh.getAttribute('color'),
+                  emissive: '#ffb703',
+                  emissiveIntensity: 0.8,
+                  transparent: true,
+                  opacity: Math.max(0, 1 - particle.age / particle.life)
+                });
+
+                remaining.push(particle);
+              }
+
+              burst.particles = remaining;
+
+              if (!remaining.length) {
+                if (burst.entity.parentNode) {
+                  burst.entity.parentNode.removeChild(burst.entity);
+                }
+                this.bursts.splice(i, 1);
+              }
+            }
+          }
+        });
+
         AFRAME.registerComponent('pulse-on-click', {
           init: function () {
             const el = this.el;
+            const palette = ['#f3efe9', '#d7c2a5', '#b8d7c5', '#c8d4ff', '#f0b5c7', '#d8d8a5'];
+            let index = 0;
+
             el.addEventListener('click', () => {
+              index = (index + 1) % palette.length;
+              const nextColor = palette[index];
+              el.setAttribute('color', nextColor);
+              el.setAttribute('material', {
+                src: '#marbleTexture',
+                color: nextColor,
+                metalness: 0.12,
+                roughness: 0.38
+              });
+
+              if (window.playCubeSound) {
+                window.playCubeSound();
+              }
               el.emit('pulse');
               setTimeout(() => el.emit('resetScale'), 500);
             });
