@@ -2,11 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+<<<<<<< Updated upstream
     <title>meandering the subconscious playground </title>
+=======
+    <title>A-Frame Scene with Web Audio</title>
+>>>>>>> Stashed changes
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   </head>
   <body>
+<<<<<<< Updated upstream
     <a-scene shadow="type: pcfsoft">
 
       <!-- HTML overlay UI lives inside a-scene so it stays visible when -->
@@ -68,6 +73,19 @@
       </script>
 
       <!-- Mouse cursor for desktop click interaction -->
+=======
+    <a-scene background="color: black" shadow="type: pcfsoft">
+      
+      <!-- Preload audio -->
+      <a-assets>
+        <audio id="ambient-sound" src="https://cdn.pixabay.com/download/audio/2023/01/20/audio_4999c6e87b.mp3?filename=ambient-dream-111763.mp3" preload="auto"></audio>
+      </a-assets>
+
+      <!-- Background sound: will play after user click -->
+      <a-entity sound="src: #ambient-sound; autoplay: false; loop: true; volume: 0.5" id="audioPlayer"></a-entity>
+
+      <!-- Cursor for clicking -->
+>>>>>>> Stashed changes
       <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
 
       <!-- Ground with ripple shader -->
@@ -93,7 +111,11 @@
              animation__shrink="property: scale; startEvents: resetScale; to: 1 1 1; dur: 300; easing: easeInOutSine">
       </a-box>
 
+<<<<<<< Updated upstream
       <!-- Spotlight with smooth color cycling -->
+=======
+      <!-- Spotlight (cycling) -->
+>>>>>>> Stashed changes
       <a-entity id="colorSpot"
                 light="type: spot; intensity: 4.8; angle: 85; penumbra: 1.1; decay: 2; distance: 36; castShadow: true"
                 position="1 8 2"
@@ -102,13 +124,22 @@
                 smooth-color-cycler>
       </a-entity>
 
+<<<<<<< Updated upstream
       <!-- Ambient light -->
       <a-entity light="type: ambient; color: #dfe6ff; intensity: 0.18"></a-entity>
+=======
+      <!-- Ambient Light -->
+      <a-entity light="type: ambient; color: #ccccff; intensity: 0.3"></a-entity>
+>>>>>>> Stashed changes
 
       <!-- Camera -->
       <a-entity camera look-controls wasd-controls position="0 1.6 5"></a-entity>
 
+<<<<<<< Updated upstream
       <!-- Ripple Shader -->
+=======
+      <!-- Components -->
+>>>>>>> Stashed changes
       <script>
         AFRAME.registerShader('ripple', {
           schema: {
@@ -806,6 +837,21 @@
             cycle();
           }
         });
+<<<<<<< Updated upstream
+=======
+
+        // ? Start audio after user interaction (required by browsers)
+        window.addEventListener('click', () => {
+          const audioEl = document.querySelector('#audioPlayer');
+          if (audioEl && !audioEl.components.sound.isPlaying) {
+            audioEl.components.sound.playSound();
+          }
+        }, { once: true });
+
+        document.addEventListener('DOMContentLoaded', () => {
+          document.querySelector('#cube').setAttribute('pulse-on-click', '');
+        });
+>>>>>>> Stashed changes
       </script>
 
     </a-scene>
