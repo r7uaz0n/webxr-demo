@@ -99,7 +99,7 @@
              position="0 2 -3"
              width="1.2" height="1.2" depth="1.2"
              color="#ffffff"
-             material="src: #noiseTexture; color: #ffffff; metalness: 0.08; roughness: 0.8; transparent: false"
+             material="src: #noiseTexture; color: #ffffff; metalness: 0.08; roughness: 0.8; transparent: false; wireframe: false"
              shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
              animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
@@ -716,14 +716,18 @@
               el.setAttribute('material', {
                 color: nextColor,
                 metalness: 0.12,
-                roughness: 0.38
+                roughness: 0.38,
+                wireframe: true
               });
 
               if (window.playCubeSound) {
                 window.playCubeSound();
               }
               el.emit('pulse');
-              setTimeout(() => el.emit('resetScale'), 500);
+              setTimeout(() => {
+                el.emit('resetScale');
+                el.setAttribute('material', 'wireframe', false);
+              }, 500);
             });
           }
         });
