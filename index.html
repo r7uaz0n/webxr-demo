@@ -221,7 +221,8 @@
 
         AFRAME.registerShader('water', {
           schema: {
-            time: { type: 'time', is: 'uniform' }
+            time: { type: 'time', is: 'uniform' },
+            hueOffset: { type: 'number', default: 0, is: 'uniform' }
           },
           vertexShader: `
             varying vec2 vUV;
@@ -234,6 +235,7 @@
             precision mediump float;
             #define PI 3.14159265
             uniform float time;
+            uniform float hueOffset;
             varying vec2 vUV;
 
             vec3 hueRotate(vec3 color, float hue) {
@@ -275,7 +277,7 @@
               float caustic = smoothstep(0.4, 0.6, amp) * smoothstep(0.6, 0.4, abs(amp - 0.5)) * 2.0;
               col += vec3(0.3, 0.5, 0.8) * caustic * 0.4;
 
-              col = hueRotate(col, time * 0.0004);
+              col = hueRotate(col, time * 0.0004 + hueOffset);
 
               gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(0.45)), 1.0);
             }
@@ -566,12 +568,27 @@
           let toneGainScale = 1;
           let toneDurationScale = 1;
 
+          // Major scale (whole-whole-half-whole-whole-whole-half) in semitones from the root.
+          const MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11];
+          const CLICK_OCTAVE_SPAN = 2; // climb this many octaves before wrapping back to the root
+          const CLICK_BASE_ROOT = 196; // G3
+          let clickScaleStep = 0;
+
+          function nextClickRoot() {
+            const totalSteps = MAJOR_SCALE_STEPS.length * CLICK_OCTAVE_SPAN;
+            const step = clickScaleStep % totalSteps;
+            const semitones = MAJOR_SCALE_STEPS[step % MAJOR_SCALE_STEPS.length];
+            const octave = Math.floor(step / MAJOR_SCALE_STEPS.length);
+            clickScaleStep = (clickScaleStep + 1) % totalSteps;
+            return CLICK_BASE_ROOT * Math.pow(2, (semitones + octave * 12) / 12);
+          }
+
           function playCubeSound() {
             const ctx = ensureAudio();
             if (!ctx || !masterGain) return;
 
             const start = ctx.currentTime;
-            const root = 196 + Math.random() * 40;
+            const root = nextClickRoot();
             lastRoot = root;
             const profile = soundProfiles[activeSound] || soundProfiles['ambient-key'];
             profile({ start, root });
@@ -650,7 +667,7 @@
               const ripple = document.createElement('a-ring');
               ripple.setAttribute('position', { x, y: 0.05, z });
               ripple.setAttribute('rotation', '-90 0 0');
-              ripple.setAttribute('radius-inner', 0.06);
+              ripple.setAttribute('radius-inner', 0.15);
               ripple.setAttribute('radius-outer', 0.18);
               ripple.setAttribute('material', {
                 color,
@@ -787,6 +804,8 @@
         AFRAME.registerComponent('pulse-on-click', {
           init: function () {
             const el = this.el;
+            const HUE_STEP = 2.399963; // golden angle in radians, spreads hues evenly over repeated clicks
+            let hueOffset = 0;
 
             const setWireframe = (value) => {
               const mesh = el.getObject3D('mesh');
@@ -795,6 +814,9 @@
 
             el.addEventListener('click', () => {
               setWireframe(true);
+
+              hueOffset += HUE_STEP;
+              el.setAttribute('material', 'hueOffset', hueOffset);
 
               if (window.playCubeSound) {
                 window.playCubeSound();
