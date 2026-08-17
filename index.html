@@ -299,9 +299,12 @@
             filter.frequency.setValueAtTime(filterFreq, start);
             filter.Q.value = 0.6;
 
+            const scaledGain = gainValue * toneGainScale;
+            const scaledDuration = duration * toneDurationScale;
+
             gainNode.gain.setValueAtTime(0.0001, start);
-            gainNode.gain.exponentialRampToValueAtTime(gainValue, start + 0.08);
-            gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration + 0.12);
+            gainNode.gain.exponentialRampToValueAtTime(scaledGain, start + 0.08);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, start + scaledDuration + 0.12);
 
             oscillator.connect(filter);
             filter.connect(gainNode);
@@ -309,7 +312,22 @@
             gainNode.connect(delayNode);
 
             oscillator.start(start);
-            oscillator.stop(start + duration + 0.18);
+            oscillator.stop(start + scaledDuration + 0.18);
+          }
+
+          function playParticleHit() {
+            if (!audioContext || !masterGain) return;
+
+            const start = audioContext.currentTime;
+            const profile = soundProfiles[activeSound] || soundProfiles['ambient-key'];
+            const pitchUp = [1.5, 2, 3, 4][Math.floor(Math.random() * 4)];
+            const root = lastRoot * pitchUp + (Math.random() - 0.5) * 6;
+
+            toneGainScale = 0.14 + Math.random() * 0.06;
+            toneDurationScale = 0.18;
+            profile({ start, root });
+            toneGainScale = 1;
+            toneDurationScale = 1;
           }
 
           function playAmbientKey({ frequency, start, duration, gainValue = 0.04, detune = 0 }) {
@@ -362,7 +380,7 @@
                 start,
                 duration: 1.4,
                 type: 'triangle',
-                gainValue: 0.04,
+                gainValue: 0.14,
                 detune: 6,
                 filterFreq: 4200
               });
@@ -371,7 +389,7 @@
                 start: start + 0.04,
                 duration: 1.8,
                 type: 'sine',
-                gainValue: 0.02,
+                gainValue: 0.07,
                 detune: 0,
                 filterFreq: 3400
               });
@@ -380,7 +398,7 @@
                 start: start + 0.08,
                 duration: 1.6,
                 type: 'sine',
-                gainValue: 0.015,
+                gainValue: 0.05,
                 detune: -2,
                 filterFreq: 2600
               });
@@ -392,7 +410,7 @@
                   start: start + index * 0.04,
                   duration: 2.2,
                   type: 'sine',
-                  gainValue: 0.024 - index * 0.003,
+                  gainValue: 0.08 - index * 0.01,
                   detune: 0,
                   filterFreq: 7000
                 });
@@ -404,7 +422,7 @@
                 start,
                 duration: 2.2,
                 type: 'sawtooth',
-                gainValue: 0.024,
+                gainValue: 0.075,
                 detune: -4,
                 filterFreq: 900
               });
@@ -413,7 +431,7 @@
                 start: start + 0.06,
                 duration: 1.1,
                 type: 'triangle',
-                gainValue: 0.04,
+                gainValue: 0.13,
                 detune: 4,
                 filterFreq: 1800
               });
@@ -422,7 +440,7 @@
                 start: start + 0.12,
                 duration: 1.3,
                 type: 'sine',
-                gainValue: 0.018,
+                gainValue: 0.055,
                 detune: 2,
                 filterFreq: 1600
               });
@@ -433,7 +451,7 @@
                 start,
                 duration: 0.8,
                 type: 'triangle',
-                gainValue: 0.06,
+                gainValue: 0.14,
                 detune: 2,
                 filterFreq: 2400
               });
@@ -442,7 +460,7 @@
                 start: start + 0.04,
                 duration: 0.7,
                 type: 'sine',
-                gainValue: 0.03,
+                gainValue: 0.07,
                 detune: 5,
                 filterFreq: 2000
               });
@@ -451,7 +469,7 @@
                 start: start + 0.08,
                 duration: 0.8,
                 type: 'sine',
-                gainValue: 0.02,
+                gainValue: 0.05,
                 detune: 0,
                 filterFreq: 1600
               });
@@ -459,6 +477,9 @@
           };
 
           let activeSound = 'ambient-key';
+          let lastRoot = 220;
+          let toneGainScale = 1;
+          let toneDurationScale = 1;
 
           function playCubeSound() {
             const ctx = ensureAudio();
@@ -466,6 +487,7 @@
 
             const start = ctx.currentTime;
             const root = 196 + Math.random() * 40;
+            lastRoot = root;
             const profile = soundProfiles[activeSound] || soundProfiles['ambient-key'];
             profile({ start, root });
 
@@ -510,6 +532,7 @@
           window.updateReverbLevel = updateReverbLevel;
           window.updateVolumeLevel = updateVolumeLevel;
           window.getAudioLevels = getAudioLevels;
+          window.playParticleHit = playParticleHit;
         })();
 
         AFRAME.registerComponent('audio-reactive-sky', {
@@ -649,6 +672,7 @@
                 if (current.y <= 0.04 && !particle.rippleCreated) {
                   const cubeColor = this.el.getAttribute('material').color || '#f3efe9';
                   this.createRipple(current.x, current.z, cubeColor);
+                  if (window.playParticleHit) window.playParticleHit();
                   particle.rippleCreated = true;
                 }
 
