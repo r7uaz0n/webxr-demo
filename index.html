@@ -65,18 +65,6 @@
 
           document.body.appendChild(canvas);
         })();
-
-        (function () {
-          const img = new Image();
-          img.id = 'noiseTexture';
-          img.src = './-noise.gif';
-          img.crossOrigin = 'anonymous';
-          img.style.position = 'fixed';
-          img.style.left = '-9999px';
-          img.style.top = '-9999px';
-          img.style.display = 'block';
-          document.body.appendChild(img);
-        })();
       </script>
 
       <!-- Mouse cursor for desktop click interaction -->
@@ -98,8 +86,7 @@
              spark-on-click
              position="0 2 -3"
              width="1.2" height="1.2" depth="1.2"
-             color="#ffffff"
-             material="src: #noiseTexture; color: #ffffff; metalness: 0.08; roughness: 0.8; transparent: false; wireframe: false"
+             material="shader: water; transparent: false"
              shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
              animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
@@ -197,6 +184,69 @@
               sky += vec3(0.10, 0.05, 0.18) * audioBass * (0.4 + 0.6 * horizon);
 
               gl_FragColor = vec4(sky, 1.0);
+            }
+          `
+        });
+
+        AFRAME.registerShader('water', {
+          schema: {
+            time: { type: 'time', is: 'uniform' }
+          },
+          vertexShader: `
+            varying vec2 vUV;
+            void main() {
+              vUV = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            precision mediump float;
+            #define PI 3.14159265
+            uniform float time;
+            varying vec2 vUV;
+
+            vec3 hueRotate(vec3 color, float hue) {
+              const vec3 k = vec3(0.57735, 0.57735, 0.57735);
+              float cosAngle = cos(hue);
+              return color * cosAngle + cross(k, color) * sin(hue) + k * dot(k, color) * (1.0 - cosAngle);
+            }
+
+            void main() {
+              vec2 uv = (vUV - 0.5) * 4.0;
+              vec2 m = vec2(0.0);
+              float t = time * 0.001 * 1.5;
+              float k = 8.0;
+              float omega = t;
+              vec2 sources[6];
+              sources[0] = vec2(-1.5, 0.0);
+              sources[1] = vec2(1.5, 0.0);
+              sources[2] = vec2(0.0, -1.2);
+              sources[3] = vec2(0.0, 1.2);
+              sources[4] = vec2(-0.8, 0.8);
+              sources[5] = m;
+
+              float amp = 0.0;
+              for (int i = 0; i < 6; i++) {
+                float d = length(uv - sources[i]);
+                amp += sin(k * d - omega) / max(sqrt(d), 0.3) * mix(1.0, 0.6, float(i) / 5.0);
+              }
+              amp /= 3.0;
+
+              vec3 deepWater = vec3(0.02, 0.12, 0.32);
+              vec3 shallowWater = vec3(0.1, 0.5, 0.8);
+              vec3 foam = vec3(0.9, 0.95, 1.0);
+              float h = amp * 0.5 + 0.5;
+              vec3 col = mix(deepWater, shallowWater, h);
+
+              float foamLine = exp(-abs(amp) * (abs(amp) * 4.0 + 2.0)) * 2.0;
+              col = mix(col, foam, clamp(foamLine, 0.0, 1.0));
+
+              float caustic = smoothstep(0.4, 0.6, amp) * smoothstep(0.6, 0.4, abs(amp - 0.5)) * 2.0;
+              col += vec3(0.3, 0.5, 0.8) * caustic * 0.4;
+
+              col = hueRotate(col, time * 0.0004);
+
+              gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(0.45)), 1.0);
             }
           `
         });
@@ -706,19 +756,14 @@
         AFRAME.registerComponent('pulse-on-click', {
           init: function () {
             const el = this.el;
-            const palette = ['#f3efe9', '#d7c2a5', '#b8d7c5', '#c8d4ff', '#f0b5c7', '#d8d8a5'];
-            let index = 0;
+
+            const setWireframe = (value) => {
+              const mesh = el.getObject3D('mesh');
+              if (mesh && mesh.material) mesh.material.wireframe = value;
+            };
 
             el.addEventListener('click', () => {
-              index = (index + 1) % palette.length;
-              const nextColor = palette[index];
-              el.setAttribute('color', nextColor);
-              el.setAttribute('material', {
-                color: nextColor,
-                metalness: 0.12,
-                roughness: 0.38,
-                wireframe: true
-              });
+              setWireframe(true);
 
               if (window.playCubeSound) {
                 window.playCubeSound();
@@ -726,7 +771,7 @@
               el.emit('pulse');
               setTimeout(() => {
                 el.emit('resetScale');
-                el.setAttribute('material', 'wireframe', false);
+                setWireframe(false);
               }, 500);
             });
           }
