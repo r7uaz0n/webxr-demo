@@ -4,7 +4,9 @@
       "Bash(grep -o 'registerComponent\\(\"material\",{schema:{[^}]\\\\{0,600\\\\}' /tmp/aframe.min.js | head -3)",
       "Read(//private/tmp/**)",
       "Bash(grep -o 'i\\(\"material\",{schema:{[^}]\\\\{0,800\\\\}' /tmp/aframe.min.js)",
-      "Bash(grep -o '\"material\",{schema:{.\\\\{0,600\\\\}' /tmp/aframe.min.js)"
+      "Bash(grep -o '\"material\",{schema:{.\\\\{0,600\\\\}' /tmp/aframe.min.js)",
+      "Bash(python3 -)",
+      "Bash(node -e *)"
     ]
   }
 }
