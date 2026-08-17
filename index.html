@@ -21,7 +21,7 @@
     </div>
     <div id="volume-control" style="position: fixed; top: 130px; left: 16px; z-index: 20; padding: 8px 12px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: white; font: 12px/1.2 sans-serif; backdrop-filter: blur(6px);">
       <label for="volume-slider" style="display: block; margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase;">Volume</label>
-      <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.36" style="width: 140px; accent-color: #dfe6ff;" />
+      <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.86" style="width: 140px; accent-color: #dfe6ff;" />
     </div>
 
     <a-scene shadow="type: pcfsoft">
@@ -209,7 +209,7 @@
           let dryGain = null;
           let analyser = null;
           let audioDataArray = null;
-          let currentVolume = 0.36;
+          let currentVolume = 0.86;
 
           function ensureAudio() {
             if (!AudioCtx) return null;
