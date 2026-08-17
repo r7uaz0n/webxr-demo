@@ -7,24 +7,27 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   </head>
   <body>
-    <div id="sound-hint" style="position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); color: rgba(255,255,255,0.8); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 10px 16px; font: 12px/1.2 sans-serif; letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none; z-index: 10;">Click the cube to enable sound</div>
-    <div id="sound-picker" style="position: fixed; top: 16px; left: 16px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 20;">
-      <button data-sound="ambient-key" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Ambient Key</button>
-      <button data-sound="glass-hum" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Glass Hum</button>
-      <button data-sound="bell-tone" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Bell Tone</button>
-      <button data-sound="drone-hit" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Drone Hit</button>
-      <button data-sound="soft-pluck" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Soft Pluck</button>
-    </div>
-    <div id="reverb-control" style="position: fixed; top: 72px; left: 16px; z-index: 20; padding: 8px 12px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: white; font: 12px/1.2 sans-serif; backdrop-filter: blur(6px);">
-      <label for="reverb-slider" style="display: block; margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase;">Delay</label>
-      <input id="reverb-slider" type="range" min="0" max="1" step="0.01" value="0.4" style="width: 140px; accent-color: #dfe6ff;" />
-    </div>
-    <div id="volume-control" style="position: fixed; top: 130px; left: 16px; z-index: 20; padding: 8px 12px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: white; font: 12px/1.2 sans-serif; backdrop-filter: blur(6px);">
-      <label for="volume-slider" style="display: block; margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase;">Volume</label>
-      <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.86" style="width: 140px; accent-color: #dfe6ff;" />
-    </div>
-
     <a-scene shadow="type: pcfsoft">
+
+      <!-- HTML overlay UI lives inside a-scene so it stays visible when -->
+      <!-- the scene is the fullscreen element (Fullscreen API only renders -->
+      <!-- the fullscreen element's own subtree). -->
+      <div id="sound-hint" style="position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); color: rgba(255,255,255,0.8); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 10px 16px; font: 12px/1.2 sans-serif; letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none; z-index: 10;">Click the cube to enable sound</div>
+      <div id="sound-picker" style="position: fixed; top: 16px; left: 16px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 20;">
+        <button data-sound="ambient-key" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Ambient Key</button>
+        <button data-sound="glass-hum" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Glass Hum</button>
+        <button data-sound="bell-tone" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Bell Tone</button>
+        <button data-sound="drone-hit" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Drone Hit</button>
+        <button data-sound="soft-pluck" style="padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; cursor: pointer;">Soft Pluck</button>
+      </div>
+      <div id="reverb-control" style="position: fixed; top: 72px; left: 16px; z-index: 20; padding: 8px 12px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: white; font: 12px/1.2 sans-serif; backdrop-filter: blur(6px);">
+        <label for="reverb-slider" style="display: block; margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase;">Delay</label>
+        <input id="reverb-slider" type="range" min="0" max="1" step="0.01" value="0.4" style="width: 140px; accent-color: #dfe6ff;" />
+      </div>
+      <div id="volume-control" style="position: fixed; top: 130px; left: 16px; z-index: 20; padding: 8px 12px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); color: white; font: 12px/1.2 sans-serif; backdrop-filter: blur(6px);">
+        <label for="volume-slider" style="display: block; margin-bottom: 6px; letter-spacing: 0.08em; text-transform: uppercase;">Volume</label>
+        <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.86" style="width: 140px; accent-color: #dfe6ff;" />
+      </div>
 
       <a-sky id="skybox" material="shader: skybox; color: #dfe7ff; side: back" audio-reactive-sky></a-sky>
 
