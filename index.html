@@ -22,7 +22,7 @@
 
     <a-scene shadow="type: pcfsoft">
 
-      <a-sky id="skybox" material="shader: skybox; color: #dfe7ff; side: back"></a-sky>
+      <a-sky id="skybox" material="shader: skybox; color: #dfe7ff; side: back" audio-reactive-sky></a-sky>
 
       <!-- Procedurally generated grass texture (runs immediately so it's -->
       <!-- available in the DOM before the cube's material tries to load it) -->
@@ -145,7 +145,10 @@
         AFRAME.registerShader('skybox', {
           schema: {
             time: { type: 'time', is: 'uniform' },
-            color: { type: 'color', default: '#dfe7ff', is: 'uniform' }
+            color: { type: 'color', default: '#dfe7ff', is: 'uniform' },
+            audioBass: { type: 'number', default: 0, is: 'uniform' },
+            audioMid: { type: 'number', default: 0, is: 'uniform' },
+            audioTreble: { type: 'number', default: 0, is: 'uniform' }
           },
           vertexShader: `
             varying vec2 vUV;
@@ -161,6 +164,9 @@
             precision mediump float;
             uniform float time;
             uniform vec3 color;
+            uniform float audioBass;
+            uniform float audioMid;
+            uniform float audioTreble;
             varying vec2 vUV;
             varying vec3 vWorldPos;
 
@@ -171,13 +177,16 @@
               vec3 horizonColor = vec3(0.90, 0.82, 0.96);
               vec3 sky = mix(zenith, horizonColor, horizon);
 
-              float cloudBand = sin((uv.x * 9.0 + uv.y * 6.0) * 2.0 - time * 0.00015) * 0.5 + 0.5;
-              float cloudWave = sin((uv.x * 14.0 - uv.y * 8.0) + time * 0.0002) * 0.5 + 0.5;
+              float cloudSpeed = 1.0 + audioMid * 3.0;
+              float cloudBand = sin((uv.x * 9.0 + uv.y * 6.0) * 2.0 - time * 0.00015 * cloudSpeed) * 0.5 + 0.5;
+              float cloudWave = sin((uv.x * 14.0 - uv.y * 8.0) + time * 0.0002 * cloudSpeed) * 0.5 + 0.5;
               float mist = smoothstep(0.25, 1.0, cloudBand * cloudWave);
-              sky = mix(sky, vec3(1.0, 0.98, 1.0), mist * 0.12);
+              sky = mix(sky, vec3(1.0, 0.98, 1.0), mist * (0.12 + audioTreble * 0.35));
 
               float glow = 1.0 - length(uv * vec2(1.0, 0.75));
-              sky += vec3(0.14, 0.12, 0.22) * smoothstep(0.2, 1.0, glow) * 0.25;
+              sky += vec3(0.14, 0.12, 0.22) * smoothstep(0.2, 1.0, glow) * (0.25 + audioBass * 0.9);
+
+              sky += vec3(0.10, 0.05, 0.18) * audioBass * (0.4 + 0.6 * horizon);
 
               gl_FragColor = vec4(sky, 1.0);
             }
@@ -194,13 +203,15 @@
           let delayNode = null;
           let delayFeedback = null;
           let dryGain = null;
+          let analyser = null;
+          let audioDataArray = null;
 
           function ensureAudio() {
             if (!AudioCtx) return null;
             if (!audioContext) {
               audioContext = new AudioCtx();
               masterGain = audioContext.createGain();
-              masterGain.gain.value = 0.18;
+              masterGain.gain.value = 0.36;
 
               delayNode = audioContext.createDelay(1.5);
               delayFeedback = audioContext.createGain();
@@ -210,16 +221,44 @@
               delayFeedback.gain.value = 0.34;
               dryGain.gain.value = 0.8;
 
+              analyser = audioContext.createAnalyser();
+              analyser.fftSize = 256;
+              analyser.smoothingTimeConstant = 0.8;
+              audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+
               delayNode.connect(delayFeedback);
               delayFeedback.connect(delayNode);
               delayNode.connect(masterGain);
               dryGain.connect(masterGain);
-              masterGain.connect(audioContext.destination);
+              masterGain.connect(analyser);
+              analyser.connect(audioContext.destination);
             }
             if (audioContext.state === 'suspended') {
               audioContext.resume();
             }
             return audioContext;
+          }
+
+          function getAudioLevels() {
+            if (!analyser || !audioDataArray) {
+              return { bass: 0, mid: 0, treble: 0, overall: 0 };
+            }
+            analyser.getByteFrequencyData(audioDataArray);
+            const len = audioDataArray.length;
+            const bassEnd = Math.floor(len * 0.15);
+            const midEnd = Math.floor(len * 0.5);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+            for (let i = 0; i < bassEnd; i += 1) bassSum += audioDataArray[i];
+            for (let i = bassEnd; i < midEnd; i += 1) midSum += audioDataArray[i];
+            for (let i = midEnd; i < len; i += 1) trebleSum += audioDataArray[i];
+
+            const bass = bassSum / (bassEnd * 255);
+            const mid = midSum / ((midEnd - bassEnd) * 255);
+            const treble = trebleSum / ((len - midEnd) * 255);
+            const overall = (bassSum + midSum + trebleSum) / (len * 255);
+
+            return { bass, mid, treble, overall };
           }
 
           function updateReverbLevel(value) {
@@ -450,7 +489,28 @@
           window.playCubeSound = playCubeSound;
           window.soundProfiles = soundProfiles;
           window.updateReverbLevel = updateReverbLevel;
+          window.getAudioLevels = getAudioLevels;
         })();
+
+        AFRAME.registerComponent('audio-reactive-sky', {
+          init: function () {
+            this.smoothed = { bass: 0, mid: 0, treble: 0 };
+          },
+          tick: function () {
+            if (!window.getAudioLevels) return;
+            const levels = window.getAudioLevels();
+            const smoothing = 0.15;
+            this.smoothed.bass += (levels.bass - this.smoothed.bass) * smoothing;
+            this.smoothed.mid += (levels.mid - this.smoothed.mid) * smoothing;
+            this.smoothed.treble += (levels.treble - this.smoothed.treble) * smoothing;
+
+            this.el.setAttribute('material', {
+              audioBass: this.smoothed.bass,
+              audioMid: this.smoothed.mid,
+              audioTreble: this.smoothed.treble
+            });
+          }
+        });
 
         AFRAME.registerComponent('spark-on-click', {
           init: function () {
@@ -606,7 +666,6 @@
               const nextColor = palette[index];
               el.setAttribute('color', nextColor);
               el.setAttribute('material', {
-                src: '#marbleTexture',
                 color: nextColor,
                 metalness: 0.12,
                 roughness: 0.38
