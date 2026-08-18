@@ -712,12 +712,11 @@
               const particles = [];
               for (let i = 0; i < 18; i += 1) {
                 const particle = document.createElement('a-sphere');
-                const hue = i % 2 === 0 ? '#ffd166' : '#ff7b00';
                 particle.setAttribute('radius', rand(0.018, 0.04));
-                particle.setAttribute('color', hue);
+                particle.setAttribute('color', '#ffffff');
                 particle.setAttribute('material', {
-                  color: hue,
-                  emissive: '#ffb703',
+                  color: '#ffffff',
+                  emissive: '#ffffff',
                   emissiveIntensity: 1,
                   transparent: true,
                   opacity: 0.95
@@ -778,8 +777,8 @@
                 }
 
                 particle.mesh.setAttribute('material', {
-                  color: particle.mesh.getAttribute('color'),
-                  emissive: '#ffb703',
+                  color: '#ffffff',
+                  emissive: '#ffffff',
                   emissiveIntensity: 0.8,
                   transparent: true,
                   opacity: Math.max(0, 1 - particle.age / particle.life)
