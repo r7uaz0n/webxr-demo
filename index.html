@@ -84,9 +84,10 @@
              class="clickable"
              pulse-on-click
              spark-on-click
+             audio-reactive-cube
              position="0 2 -3"
              width="1.2" height="1.2" depth="1.2"
-             material="shader: water; transparent: false"
+             material="shader: aurora; transparent: false"
              shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
              animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
@@ -188,10 +189,11 @@
           `
         });
 
-        AFRAME.registerShader('water', {
+        AFRAME.registerShader('aurora', {
           schema: {
-            time: { type: 'time', is: 'uniform' },
-            hueOffset: { type: 'number', default: 0, is: 'uniform' }
+            iTime: { type: 'time', is: 'uniform' },
+            iResolution: { type: 'vec2', is: 'uniform', default: { x: 256, y: 256 } },
+            iMouse: { type: 'vec4', is: 'uniform', default: { x: 128, y: 128, z: 0, w: 0 } }
           },
           vertexShader: `
             varying vec2 vUV;
@@ -201,56 +203,77 @@
             }
           `,
           fragmentShader: `
-            precision mediump float;
-            #define PI 3.14159265
-            uniform float time;
-            uniform float hueOffset;
+            precision highp float;
+            uniform float iTime;
+            uniform vec2 iResolution;
+            uniform vec4 iMouse;
+            uniform sampler2D iChannel0;
             varying vec2 vUV;
 
-            vec3 hueRotate(vec3 color, float hue) {
-              const vec3 k = vec3(0.57735, 0.57735, 0.57735);
-              float cosAngle = cos(hue);
-              return color * cosAngle + cross(k, color) * sin(hue) + k * dot(k, color) * (1.0 - cosAngle);
+            void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+                vec2 uv = (fragCoord - 0.5 * iResolution.xy) / iResolution.y;
+                vec2 m = (iMouse.xy - 0.5 * iResolution.xy) / iResolution.y;
+                float bass   = texture2D(iChannel0, vec2(0.05, 0.0)).r;
+                float fft    = texture2D(iChannel0, vec2(0.35, 0.0)).r;
+                float treble = texture2D(iChannel0, vec2(0.8,  0.0)).r;
+                float aurora = 0.0;
+                for (int i = 0; i < 5; i++) {
+                    float fi = float(i);
+                    float wave = sin(uv.x * (3.0 + fi) + iTime + bass * 4.0);
+                    float y = m.y * 0.5 + fi * 0.07 + wave * (0.1 + fft * 0.2);
+                    aurora += 0.03 / (abs(uv.y - y) + 0.01);
+                }
+                float hue = m.x + uv.x * 0.3 + iTime * 0.1;
+                vec3 tint = 0.5 + 0.5 * cos(hue * 6.28 + vec3(0, 2, 4));
+                vec3 col = vec3(0.01, 0.01, 0.05);
+                col += tint * aurora * (0.08 + bass * 0.12);
+                col += vec3(0.9, 0.8, 1.0) * treble * 0.2 * exp(-length(uv - m) * 4.0);
+                vec2 id = floor(uv * 40.0);
+                col += step(0.975, fract(sin(dot(id, vec2(12.9, 78.2))) * 43758.5)) * 0.4;
+                fragColor = vec4(col, 1.0);
             }
 
             void main() {
-              vec2 uv = (vUV - 0.5) * 4.0;
-              vec2 m = vec2(0.0);
-              float t = time * 0.001 * 1.5;
-              float k = 8.0;
-              float omega = t;
-              vec2 sources[6];
-              sources[0] = vec2(-1.5, 0.0);
-              sources[1] = vec2(1.5, 0.0);
-              sources[2] = vec2(0.0, -1.2);
-              sources[3] = vec2(0.0, 1.2);
-              sources[4] = vec2(-0.8, 0.8);
-              sources[5] = m;
-
-              float amp = 0.0;
-              for (int i = 0; i < 6; i++) {
-                float d = length(uv - sources[i]);
-                amp += sin(k * d - omega) / max(sqrt(d), 0.3) * mix(1.0, 0.6, float(i) / 5.0);
-              }
-              amp /= 3.0;
-
-              vec3 deepWater = vec3(0.02, 0.12, 0.32);
-              vec3 shallowWater = vec3(0.1, 0.5, 0.8);
-              vec3 foam = vec3(0.9, 0.95, 1.0);
-              float h = amp * 0.5 + 0.5;
-              vec3 col = mix(deepWater, shallowWater, h);
-
-              float foamLine = exp(-abs(amp) * (abs(amp) * 4.0 + 2.0)) * 2.0;
-              col = mix(col, foam, clamp(foamLine, 0.0, 1.0));
-
-              float caustic = smoothstep(0.4, 0.6, amp) * smoothstep(0.6, 0.4, abs(amp - 0.5)) * 2.0;
-              col += vec3(0.3, 0.5, 0.8) * caustic * 0.4;
-
-              col = hueRotate(col, time * 0.0004 + hueOffset);
-
-              gl_FragColor = vec4(pow(clamp(col, 0.0, 1.0), vec3(0.45)), 1.0);
+              mainImage(gl_FragColor, vUV * iResolution);
             }
           `
+        });
+
+        AFRAME.registerComponent('audio-reactive-cube', {
+          init: function () {
+            const size = 128;
+            const data = new Uint8Array(size * 4);
+            this.texture = new THREE.DataTexture(data, size, 1, THREE.RGBAFormat);
+            this.texture.minFilter = THREE.LinearFilter;
+            this.texture.magFilter = THREE.LinearFilter;
+            this.texture.needsUpdate = true;
+
+            this.attachTexture = () => {
+              const mesh = this.el.getObject3D('mesh');
+              if (mesh && mesh.material && mesh.material.uniforms) {
+                mesh.material.uniforms.iChannel0 = { value: this.texture };
+              }
+            };
+
+            this.attachTexture();
+            this.el.addEventListener('object3dset', this.attachTexture);
+          },
+          tick: function () {
+            if (!window.getAudioFrequencyArray) return;
+            const freq = window.getAudioFrequencyArray();
+            if (!freq) return;
+
+            const buf = this.texture.image.data;
+            for (let i = 0; i < freq.length; i += 1) {
+              const v = freq[i];
+              const o = i * 4;
+              buf[o] = v;
+              buf[o + 1] = v;
+              buf[o + 2] = v;
+              buf[o + 3] = 255;
+            }
+            this.texture.needsUpdate = true;
+          }
         });
       </script>
 
@@ -320,6 +343,12 @@
             const overall = (bassSum + midSum + trebleSum) / (len * 255);
 
             return { bass, mid, treble, overall };
+          }
+
+          function getAudioFrequencyArray() {
+            if (!analyser || !audioDataArray) return null;
+            analyser.getByteFrequencyData(audioDataArray);
+            return audioDataArray;
           }
 
           function updateReverbLevel(value) {
@@ -603,6 +632,7 @@
           window.updateReverbLevel = updateReverbLevel;
           window.updateVolumeLevel = updateVolumeLevel;
           window.getAudioLevels = getAudioLevels;
+          window.getAudioFrequencyArray = getAudioFrequencyArray;
           window.playParticleHit = playParticleHit;
         })();
 
@@ -773,8 +803,6 @@
         AFRAME.registerComponent('pulse-on-click', {
           init: function () {
             const el = this.el;
-            const HUE_STEP = 2.399963; // golden angle in radians, spreads hues evenly over repeated clicks
-            let hueOffset = 0;
 
             const setWireframe = (value) => {
               const mesh = el.getObject3D('mesh');
@@ -783,9 +811,6 @@
 
             el.addEventListener('click', () => {
               setWireframe(true);
-
-              hueOffset += HUE_STEP;
-              el.setAttribute('material', 'hueOffset', hueOffset);
 
               if (window.playCubeSound) {
                 window.playCubeSound();
