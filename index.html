@@ -79,20 +79,20 @@
                 shadow="receive: false">
       </a-entity>
 
-      <!-- Rotating and pulsing cube -->
-      <a-box id="cube"
+      <!-- Rotating and pulsing tetrahedron -->
+      <a-tetrahedron id="cube"
              class="clickable"
              pulse-on-click
              spark-on-click
              audio-reactive-cube
              position="0 2 -3"
-             width="1.2" height="1.2" depth="1.2"
+             radius="0.75" detail="0"
              material="shader: aurora; transparent: false"
              shadow="cast: true"
              animation__rotate="property: rotation; to: 360 360 360; loop: true; dur: 6000; easing: linear"
              animation__grow="property: scale; startEvents: pulse; from: 1 1 1; to: 1.8 1.8 1.8; dur: 300; easing: easeOutSine"
              animation__shrink="property: scale; startEvents: resetScale; to: 1 1 1; dur: 300; easing: easeInOutSine">
-      </a-box>
+      </a-tetrahedron>
 
       <!-- Spotlight with smooth color cycling -->
       <a-entity id="colorSpot"
