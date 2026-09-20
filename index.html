@@ -121,6 +121,129 @@
         .hud-panel label { margin-bottom: 3px; }
         #sound-hint { bottom: max(8px, env(safe-area-inset-bottom)); padding: 5px 12px; font-size: 10px; }
       }
+
+      /* Ambient background glow, in the spirit of luma.com event pages:
+         a few large, softly blurred color blobs drifting slowly behind the
+         content, screen-blended over the 3D scene for an ambient wash of
+         color rather than a hard-edged shape. Purely decorative. */
+      #ambient-glow {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
+        pointer-events: none;
+        opacity: 0;
+        animation: ambient-glow-fade-in 3s ease-out 0.3s forwards;
+      }
+
+      .glow-blob {
+        position: absolute;
+        width: 60vmax;
+        height: 60vmax;
+        border-radius: 50%;
+        filter: blur(110px);
+        opacity: 0.4;
+        will-change: transform;
+      }
+
+      .glow-blob.a {
+        top: -22%;
+        left: -18%;
+        background: radial-gradient(circle, #7dd3fc, transparent 70%);
+        animation: glow-drift-a 26s ease-in-out infinite alternate;
+      }
+
+      .glow-blob.b {
+        bottom: -28%;
+        right: -12%;
+        background: radial-gradient(circle, #c084fc, transparent 70%);
+        animation: glow-drift-b 32s ease-in-out infinite alternate;
+      }
+
+      .glow-blob.c {
+        top: 28%;
+        right: 8%;
+        width: 45vmax;
+        height: 45vmax;
+        background: radial-gradient(circle, #f472b6, transparent 70%);
+        animation: glow-drift-c 22s ease-in-out infinite alternate;
+      }
+
+      @keyframes ambient-glow-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      @keyframes glow-drift-a {
+        0% { transform: translate(0, 0) scale(1); }
+        100% { transform: translate(8%, 10%) scale(1.15); }
+      }
+
+      @keyframes glow-drift-b {
+        0% { transform: translate(0, 0) scale(1); }
+        100% { transform: translate(-9%, -7%) scale(1.1); }
+      }
+
+      @keyframes glow-drift-c {
+        0% { transform: translate(0, 0) scale(1); }
+        100% { transform: translate(-10%, 8%) scale(1.2); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .glow-blob { animation: none; }
+      }
+
+      /* Virtual movement joystick, shown only on touch-primary devices.
+         Looking around already works via look-controls' built-in touch
+         drag; wasd-controls has no touch equivalent, so this fills that
+         gap for movement. */
+      #touch-joystick {
+        display: none;
+        position: fixed;
+        left: max(20px, env(safe-area-inset-left));
+        bottom: max(20px, env(safe-area-inset-bottom));
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.25);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+        z-index: 15;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+
+      #touch-joystick-stick {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 48px;
+        height: 48px;
+        margin: -24px 0 0 -24px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.35);
+        border: 1px solid rgba(255,255,255,0.55);
+        transition: background 0.15s;
+      }
+
+      #touch-joystick.active #touch-joystick-stick {
+        background: rgba(255,255,255,0.6);
+      }
+
+      @media (hover: none) and (pointer: coarse) {
+        #touch-joystick { display: block; }
+        /* Reserve the whole bottom-left strip for the joystick so it
+           never collides with the centered sound-hint pill. */
+        #sound-hint { bottom: max(150px, calc(env(safe-area-inset-bottom) + 150px)); }
+      }
+
+      @media (hover: none) and (pointer: coarse) and (max-height: 420px) {
+        #touch-joystick { width: 84px; height: 84px; }
+        #touch-joystick-stick { width: 38px; height: 38px; margin: -19px 0 0 -19px; }
+        #sound-hint { bottom: 100px; }
+      }
     </style>
   </head>
   <body>
@@ -129,6 +252,11 @@
       <!-- HTML overlay UI lives inside a-scene so it stays visible when -->
       <!-- the scene is the fullscreen element (Fullscreen API only renders -->
       <!-- the fullscreen element's own subtree). -->
+      <div id="ambient-glow">
+        <div class="glow-blob a"></div>
+        <div class="glow-blob b"></div>
+        <div class="glow-blob c"></div>
+      </div>
       <div id="hud">
         <div id="page-title">[WebXR sandbox]</div>
         <div id="sound-picker">
@@ -148,7 +276,10 @@
         </div>
       </div>
       <div id="sound-hint">Click the tetrahedron to enable sound</div>
-      <div id="last-updated">Last Updated: 2026-08-24</div>
+      <div id="last-updated">Last Updated: 2026-09-20</div>
+      <div id="touch-joystick" aria-hidden="true">
+        <div id="touch-joystick-stick"></div>
+      </div>
 
       <a-sky id="skybox" material="shader: skybox; color: #dfe7ff; side: back" audio-reactive-sky></a-sky>
 
@@ -227,7 +358,108 @@
       <a-entity light="type: ambient; color: #dfe6ff; intensity: 0.18"></a-entity>
 
       <!-- Camera -->
-      <a-entity camera look-controls wasd-controls position="0 1.6 5"></a-entity>
+      <a-entity camera look-controls wasd-controls touch-joystick-controls position="0 1.6 5"></a-entity>
+
+      <!-- Touch joystick movement (mobile): drives the camera rig the same -->
+      <!-- way wasd-controls does, since wasd-controls only listens for -->
+      <!-- keyboard input. Looking around is already handled by look-controls, -->
+      <!-- which supports touch-drag out of the box. -->
+      <script>
+        AFRAME.registerComponent('touch-joystick-controls', {
+          schema: {
+            speed: { type: 'number', default: 2.6 } // meters/second at full deflection
+          },
+          init: function () {
+            this.joystickEl = document.getElementById('touch-joystick');
+            this.stickEl = document.getElementById('touch-joystick-stick');
+            if (!this.joystickEl || !this.stickEl) return;
+
+            this.active = false;
+            this.touchId = null;
+            this.vec = { x: 0, y: 0 };
+            this.center = { x: 0, y: 0 };
+            this.maxRadius = 40;
+            this.forward = new THREE.Vector3();
+            this.right = new THREE.Vector3();
+
+            const update = (clientX, clientY) => {
+              let dx = clientX - this.center.x;
+              let dy = clientY - this.center.y;
+              const dist = Math.min(Math.hypot(dx, dy), this.maxRadius);
+              const angle = Math.atan2(dy, dx);
+              dx = Math.cos(angle) * dist;
+              dy = Math.sin(angle) * dist;
+              this.stickEl.style.transform = `translate(${dx}px, ${dy}px)`;
+              this.vec.x = dx / this.maxRadius;
+              this.vec.y = -dy / this.maxRadius;
+            };
+
+            const start = (clientX, clientY, id) => {
+              const rect = this.joystickEl.getBoundingClientRect();
+              this.center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+              this.maxRadius = rect.width / 2 - this.stickEl.offsetWidth / 2;
+              this.touchId = id;
+              this.active = true;
+              this.joystickEl.classList.add('active');
+              update(clientX, clientY);
+            };
+
+            const end = () => {
+              this.active = false;
+              this.touchId = null;
+              this.vec.x = 0;
+              this.vec.y = 0;
+              this.stickEl.style.transform = 'translate(0, 0)';
+              this.joystickEl.classList.remove('active');
+            };
+
+            this.joystickEl.addEventListener('touchstart', (event) => {
+              event.preventDefault();
+              const touch = event.changedTouches[0];
+              start(touch.clientX, touch.clientY, touch.identifier);
+            }, { passive: false });
+
+            this.joystickEl.addEventListener('touchmove', (event) => {
+              if (!this.active) return;
+              event.preventDefault();
+              for (const touch of event.changedTouches) {
+                if (touch.identifier === this.touchId) {
+                  update(touch.clientX, touch.clientY);
+                  break;
+                }
+              }
+            }, { passive: false });
+
+            const onTouchEnd = (event) => {
+              if (!this.active) return;
+              for (const touch of event.changedTouches) {
+                if (touch.identifier === this.touchId) {
+                  end();
+                  break;
+                }
+              }
+            };
+            this.joystickEl.addEventListener('touchend', onTouchEnd);
+            this.joystickEl.addEventListener('touchcancel', onTouchEnd);
+          },
+          tick: function (time, delta) {
+            if (!this.active || (this.vec.x === 0 && this.vec.y === 0)) return;
+
+            const camObj = this.el.object3D;
+            this.forward.set(0, 0, -1).applyQuaternion(camObj.quaternion);
+            this.forward.y = 0;
+            this.forward.normalize();
+
+            this.right.set(1, 0, 0).applyQuaternion(camObj.quaternion);
+            this.right.y = 0;
+            this.right.normalize();
+
+            const speed = this.data.speed * (delta / 1000);
+            camObj.position.addScaledVector(this.forward, this.vec.y * speed);
+            camObj.position.addScaledVector(this.right, this.vec.x * speed);
+          }
+        });
+      </script>
 
       <!-- Ripple Shader -->
       <script>
