@@ -266,7 +266,7 @@
         width: min(280px, 100%);
         padding: 28px 24px;
         box-sizing: border-box;
-        background: rgba(255,255,255,0.06);
+        background: #1a1a1f;
         border: 1px solid rgba(255,255,255,0.15);
         border-radius: 12px;
         font: 14px/1.4 sans-serif;
@@ -339,6 +339,31 @@
         var form = document.getElementById('password-form');
         var input = document.getElementById('password-input');
         var error = document.getElementById('password-error');
+
+        var clickCtx = null;
+        function playKeyClick() {
+          try {
+            if (!clickCtx) clickCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (clickCtx.state === 'suspended') clickCtx.resume();
+            var now = clickCtx.currentTime;
+            var osc = clickCtx.createOscillator();
+            var amp = clickCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(1800 + Math.random() * 400, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.03);
+            amp.gain.setValueAtTime(0.0001, now);
+            amp.gain.exponentialRampToValueAtTime(0.08, now + 0.003);
+            amp.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+            osc.connect(amp);
+            amp.connect(clickCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.05);
+          } catch (e) {}
+        }
+
+        input.addEventListener('keydown', function (event) {
+          if (event.key.length === 1 || event.key === 'Backspace') playKeyClick();
+        });
 
         form.addEventListener('submit', function (event) {
           event.preventDefault();
