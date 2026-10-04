@@ -244,9 +244,117 @@
         #touch-joystick-stick { width: 38px; height: 38px; margin: -19px 0 0 -19px; }
         #sound-hint { bottom: 100px; }
       }
+
+      #password-gate {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #0b0b12;
+        background-image: linear-gradient(rgba(11,11,18,0.8), rgba(11,11,18,0.8)), url('-noise.gif');
+        background-repeat: repeat, repeat;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+
+      #password-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: min(280px, 100%);
+        padding: 28px 24px;
+        box-sizing: border-box;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 12px;
+        font: 14px/1.4 sans-serif;
+      }
+
+      #password-form label {
+        color: rgba(255,255,255,0.8);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 12px;
+      }
+
+      #password-input {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.25);
+        background: rgba(0,0,0,0.3);
+        color: white;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+
+      #password-submit {
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: none;
+        background: #dfe6ff;
+        color: #1a1a2e;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      #password-error {
+        display: none;
+        color: #ff8a8a;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
+    <div id="password-gate">
+      <form id="password-form" autocomplete="off">
+        <label for="password-input">Enter password</label>
+        <input id="password-input" type="password" autocomplete="off" />
+        <button id="password-submit" type="submit">Enter</button>
+        <div id="password-error">Incorrect password.</div>
+      </form>
+    </div>
+    <script>
+      (function () {
+        var PASSWORD_HASH = 'a4eff097ff00b2bed8c3623563f2d1011c6504dddacffd8c81ff5183986f330c';
+        var STORAGE_KEY = 'webxr-sandbox-unlocked';
+
+        function sha256Hex(text) {
+          var data = new TextEncoder().encode(text);
+          return crypto.subtle.digest('SHA-256', data).then(function (buf) {
+            return Array.prototype.map.call(new Uint8Array(buf), function (b) {
+              return b.toString(16).padStart(2, '0');
+            }).join('');
+          });
+        }
+
+        var gate = document.getElementById('password-gate');
+
+        if (sessionStorage.getItem(STORAGE_KEY) === '1') {
+          gate.remove();
+          return;
+        }
+
+        var form = document.getElementById('password-form');
+        var input = document.getElementById('password-input');
+        var error = document.getElementById('password-error');
+
+        form.addEventListener('submit', function (event) {
+          event.preventDefault();
+          sha256Hex(input.value).then(function (hash) {
+            if (hash === PASSWORD_HASH) {
+              sessionStorage.setItem(STORAGE_KEY, '1');
+              gate.remove();
+            } else {
+              error.style.display = 'block';
+              input.value = '';
+              input.focus();
+            }
+          });
+        });
+      })();
+    </script>
     <a-scene shadow="type: pcfsoft">
 
       <!-- HTML overlay UI lives inside a-scene so it stays visible when -->
