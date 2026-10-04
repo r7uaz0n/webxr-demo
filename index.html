@@ -252,14 +252,23 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #0b0b12;
-        background-image: linear-gradient(rgba(11,11,18,0.8), rgba(11,11,18,0.8)), url('-noise.gif');
-        background-repeat: repeat, repeat;
         padding: 16px;
         box-sizing: border-box;
       }
 
+      #password-gate::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-color: #0b0b12;
+        background-image: linear-gradient(rgba(11,11,18,0.8), rgba(11,11,18,0.8)), url('-noise.gif');
+        background-repeat: repeat, repeat;
+        filter: brightness(var(--gate-brightness, 1));
+      }
+
       #password-form {
+        position: relative;
+        z-index: 1;
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -340,6 +349,7 @@
         var input = document.getElementById('password-input');
         var error = document.getElementById('password-error');
 
+        var wrongAttempts = 0;
         var clickCtx = null;
         function playKeyClick() {
           try {
@@ -372,6 +382,8 @@
               sessionStorage.setItem(STORAGE_KEY, '1');
               gate.remove();
             } else {
+              wrongAttempts += 1;
+              gate.style.setProperty('--gate-brightness', 1 + 0.25 * wrongAttempts);
               error.style.display = 'block';
               input.value = '';
               input.focus();
