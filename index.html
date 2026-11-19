@@ -263,7 +263,6 @@
         background-color: #0b0b12;
         background-image: linear-gradient(rgba(11,11,18,0.8), rgba(11,11,18,0.8)), url('-noise.gif');
         background-repeat: repeat, repeat;
-        filter: brightness(var(--gate-brightness, 1));
       }
 
       #password-form {
@@ -349,31 +348,6 @@
         var input = document.getElementById('password-input');
         var error = document.getElementById('password-error');
 
-        var wrongAttempts = 0;
-        var clickCtx = null;
-        function playKeyClick() {
-          try {
-            if (!clickCtx) clickCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (clickCtx.state === 'suspended') clickCtx.resume();
-            var now = clickCtx.currentTime;
-            var osc = clickCtx.createOscillator();
-            var amp = clickCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(1800 + Math.random() * 400, now);
-            osc.frequency.exponentialRampToValueAtTime(600, now + 0.03);
-            amp.gain.setValueAtTime(0.0001, now);
-            amp.gain.exponentialRampToValueAtTime(0.08, now + 0.003);
-            amp.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
-            osc.connect(amp);
-            amp.connect(clickCtx.destination);
-            osc.start(now);
-            osc.stop(now + 0.05);
-          } catch (e) {}
-        }
-
-        input.addEventListener('keydown', function (event) {
-          if (event.key.length === 1 || event.key === 'Backspace') playKeyClick();
-        });
 
         form.addEventListener('submit', function (event) {
           event.preventDefault();
@@ -382,8 +356,6 @@
               sessionStorage.setItem(STORAGE_KEY, '1');
               gate.remove();
             } else {
-              wrongAttempts += 1;
-              gate.style.setProperty('--gate-brightness', 1 + 0.25 * wrongAttempts);
               error.style.display = 'block';
               input.value = '';
               input.focus();
@@ -1087,16 +1059,6 @@
             lastRoot = root;
             const profile = soundProfiles[activeSound] || soundProfiles['ambient-key'];
             profile({ start, root });
-
-            const backdrop = document.getElementById('ripple-backdrop');
-            if (backdrop) {
-              const currentColor = document.getElementById('cube').getAttribute('material').color || '#ffffff';
-              backdrop.setAttribute('material', {
-                color: currentColor,
-                opacity: 0.55,
-                transparent: true
-              });
-            }
           }
 
           document.querySelectorAll('[data-sound]').forEach(button => {
@@ -1125,9 +1087,6 @@
 
           document.body.addEventListener('pointerdown', ensureAudio, { once: true });
           window.playCubeSound = playCubeSound;
-          window.soundProfiles = soundProfiles;
-          window.updateReverbLevel = updateReverbLevel;
-          window.updateVolumeLevel = updateVolumeLevel;
           window.getAudioLevels = getAudioLevels;
           window.getAudioFrequencyArray = getAudioFrequencyArray;
           window.playParticleHit = playParticleHit;
